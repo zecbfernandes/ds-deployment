@@ -1,0 +1,22 @@
+{
+  "pipeline": null,
+  "pipeline_steps": [
+    "pipeline/dropper.joblib",
+    "pipeline/mv.joblib",
+    "pipeline/encoder.joblib",
+    "pipeline/outlier_processor.joblib",
+    "pipeline/scaling.joblib",
+    "pipeline/balancer.joblib"
+  ],
+  "models": [
+    {
+      "id": "lr",
+      "name": "Logistic Regression",
+      "file": "models/cflights_lr_l2_500.joblib",
+      "type": "classification",
+      "hyperparameters": {}
+    }
+  ],
+  "target_column": "Cancelled",
+  "feature_columns": []
+}

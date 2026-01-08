@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ML Classifier UI</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    h2 { margin-top: 2rem; }
+    form { margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
+    label { display: block; margin: 0.5rem 0; }
+    input, select { width: 100%; padding: 0.5rem; }
+    button { padding: 0.6rem 1rem; margin-top: 0.5rem; }
+    pre { background: #f7f7f7; padding: 1rem; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Web-based Classification System</h1>
+
+  <section>
+    <h2>Available Models</h2>
+    <button id="refreshModels">Refresh</button>
+    <pre id="modelsOut">Loading...</pre>
+  </section>
+
+  <section>
+    <h2>Predict Single Instance</h2>
+    <form id="predictForm">
+      <label>Model ID
+        <input type="text" id="modelId" placeholder="lr" value="lr" required />
+      </label>
+      <label>Instance JSON
+        <input type="text" id="instanceJson" placeholder='{"feature1": 1, "feature2": "A"}' required />
+      </label>
+      <button type="submit">Predict</button>
+    </form>
+    <pre id="predictOut"></pre>
+  </section>
+
+  <section>
+    <h2>Evaluate Models (CSV)</h2>
+    <form id="evalForm">
+      <label>Validation CSV File
+        <input type="file" id="csvFile" accept=".csv" required />
+      </label>
+      <label>Target column (optional)
+        <input type="text" id="targetCol" placeholder="target" />
+      </label>
+      <button type="submit">Evaluate</button>
+    </form>
+    <pre id="evalOut"></pre>
+  </section>
+
+  <script>
+    async function fetchModels() {
+      const res = await fetch('/api/models');
+      const data = await res.json();
+      document.getElementById('modelsOut').textContent = JSON.stringify(data, null, 2);
+    }
+    document.getElementById('refreshModels').addEventListener('click', fetchModels);
+    fetchModels();
+
+    document.getElementById('predictForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const modelId = document.getElementById('modelId').value.trim();
+      const instanceStr = document.getElementById('instanceJson').value.trim();
+      let instance;
+      try { instance = JSON.parse(instanceStr); } catch (err) { alert('Invalid JSON'); return; }
+      const res = await fetch('/api/predict-single', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model_id: modelId, instance })
+      });
+      const data = await res.json();
+      document.getElementById('predictOut').textContent = JSON.stringify(data, null, 2);
+    });
+
+    document.getElementById('evalForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('csvFile');
+      const targetCol = document.getElementById('targetCol').value.trim();
+      if (!fileInput.files.length) { alert('Please select a CSV file'); return; }
+      const fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      if (targetCol) fd.append('target_column', targetCol);
+      const res = await fetch('/api/evaluate-models', { method: 'POST', body: fd });
+      const data = await res.json();
+      document.getElementById('evalOut').textContent = JSON.stringify(data, null, 2);
+    });
+  </script>
+</body>
+</html>
