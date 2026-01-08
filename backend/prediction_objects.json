@@ -12,7 +12,7 @@
     {
       "id": "lr",
       "name": "Logistic Regression",
-      "file": "models/cflights_lr_l2_500.joblib",
+      "file": "models/cflights_lr_l1_500.joblib",
       "type": "classification",
       "hyperparameters": {}
     }
