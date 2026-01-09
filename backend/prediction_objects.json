@@ -45,29 +45,10 @@
       "hyperparameters": {}
     },
     {
-      "id": "dt",
-      "name": "Decision Tree",
-      "file": "models/dt.joblib",
-      "type": "classification",
-      "hyperparameters": {}
-    },
-    {
-      "id": "rf",
-      "name": "Random Forest",
-      "file": "models/rf.joblib",
-      "type": "classification",
-      "hyperparameters": {}
-    },
-    {
       "id": "rf",
       "name": "Random Forest",
       "file": "models/Flight_RF_model.joblib",
       "type": "classification",
-      "pipeline_steps": [
-        "pipeline/dropper.joblib",
-        "pipeline/encoder.joblib",
-        "pipeline/minmax_scaler.pkl"
-      ],
       "hyperparameters": { "n_estimators": 500, "max_depth": 7 , "feat": 0.7}
     },
     {
@@ -75,11 +56,6 @@
       "name": "Decision Tree",
       "file": "models/Flight_DT_model.joblib",
       "type": "classification",
-      "pipeline_steps": [    
-        "pipeline/dropper.joblib",
-        "pipeline/encoder.joblib",
-        "pipeline/minmax_scaler.pkl"
-      ],
       "hyperparameters": { "max_depth": 16 , "criterion" : "gini"}
     }
 
