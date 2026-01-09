@@ -12,7 +12,49 @@
     {
       "id": "lr",
       "name": "Logistic Regression",
-      "file": "models/cflights_lr_l1_500.joblib",
+      "file": "models/lr.joblib",
+      "type": "classification",
+      "hyperparameters": {}
+    },
+    {
+      "id": "knn",
+      "name": "K-Nearest Neighbors",
+      "file": "models/knn.joblib",
+      "type": "classification",
+      "hyperparameters": {}
+    },
+    {
+      "id": "mlp",
+      "name": "Multi-Layer Perceptron",
+      "file": "models/mlp.joblib",
+      "type": "classification",
+      "hyperparameters": {}
+    },
+    {
+      "id": "nb",
+      "name": "Naive Bayes",
+      "file": "models/nb.joblib",
+      "type": "classification",
+      "hyperparameters": {}
+    },
+    {
+      "id": "xgboost",
+      "name": "XGBoost",
+      "file": "models/xgboost.joblib",
+      "type": "classification",
+      "hyperparameters": {}
+    },
+    {
+      "id": "dt",
+      "name": "Decision Tree",
+      "file": "models/dt.joblib",
+      "type": "classification",
+      "hyperparameters": {}
+    },
+    {
+      "id": "rf",
+      "name": "Random Forest",
+      "file": "models/rf.joblib",
       "type": "classification",
       "hyperparameters": {}
     }

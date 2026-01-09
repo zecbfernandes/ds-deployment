@@ -11,7 +11,19 @@ import joblib
 from scipy import sparse
 
 """Example instance:
+
+Non-cancelled flight example:
 {   "FlightDate": "04/04/2022",   "CRSDepTime": 1133,   "CRSElapsedTime": 72.0,   "Distance": 212.0,   "Quarter": 2,   "Month": 4,   "DayofMonth": 4,   "DayOfWeek": 1,   "Marketing_Airline_Network": "UA",   "Operated_or_Branded_Code_Share_Partners": "UA_CODESHARE",   "Operating_Airline": "C5",   "Tail_Number": "N21144",   "OriginAirportID": 11921,   "OriginCityMarketID": 31921,   "OriginState": "CO",   "DestAirportID": 11292,   "DestCityMarketID": 30325,   "DestState": "CO",   "DepTimeBlk": "1100-1159",   "CRSArrTime": 1245,   "ArrTimeBlk": "1200-1259",   "DistanceGroup": 1 }
+
+Cancelled flight example:
+{   "FlightDate": "2022-04-04",  "CRSDepTime": 1529,   "CRSElapsedTime": 70.0,   "Distance": 251.0,   "Quarter": 2,   "Month": 4,   "DayofMonth": 4,   "DayOfWeek": 1,   "Marketing_Airline_Network": "UA",   "Operated_or_Branded_Code_Share_Partners": "UA_CODESHARE",   "Operating_Airline": "C5",   "Tail_Number": "N21144",   "OriginAirportID": 11413,   "OriginCityMarketID": 30285,   "OriginState": "CO",   "DestAirportID": 11292,   "DestCityMarketID": 30325,   "DestState": "CO",   "DepTimeBlk": "1500-1559",   "CRSArrTime": 1639,   "ArrTimeBlk": "1600-1659",   "DistanceGroup": 2 }
+
+Missing value example:
+{   "CRSDepTime": 1529,   "CRSElapsedTime": 70.0,   "Distance": 251.0,   "Quarter": 2,   "Month": 4,   "DayofMonth": 4,   "DayOfWeek": 1,   "Marketing_Airline_Network": "UA",   "Operated_or_Branded_Code_Share_Partners": "UA_CODESHARE",   "Operating_Airline": "C5",   "Tail_Number": "N21144",   "OriginAirportID": 11413,   "OriginCityMarketID": 30285,   "OriginState": "CO",   "DestAirportID": 11292,   "DestCityMarketID": 30325,   "DestState": "CO",   "DepTimeBlk": "1500-1559",   "CRSArrTime": 1639,   "ArrTimeBlk": "1600-1659",   "DistanceGroup": 2 }
+
+Value not proper format example:
+{   "FlightDate": "2022-04-04",  "CRSDepTime": "twelve",   "CRSElapsedTime": 70.0,   "Distance": 251.0,   "Quarter": 2,   "Month": 4,   "DayofMonth": 4,   "DayOfWeek": 1,   "Marketing_Airline_Network": "UA",   "Operated_or_Branded_Code_Share_Partners": "UA_CODESHARE",   "Operating_Airline": "C5",   "Tail_Number": "N21144",   "OriginAirportID": 11413,   "OriginCityMarketID": 30285,   "OriginState": "CO",   "DestAirportID": 11292,   "DestCityMarketID": 30325,   "DestState": "CO",   "DepTimeBlk": "1500-1559",   "CRSArrTime": 1639,   "ArrTimeBlk": "1600-1659",   "DistanceGroup": 2 }
+
 """
 
 router = APIRouter()
@@ -171,7 +183,7 @@ def predict_single(req: PredictRequest, state: AppState = Depends(get_state)):
         detail_msg = f"Prediction failed: {e}. "
         if extra_info:
             detail_msg += "Details: " + "; ".join(extra_info) + ". "
-        detail_msg += hint
+
         raise HTTPException(status_code=500, detail=detail_msg)
 
     pred_py = to_python(y_pred[0])

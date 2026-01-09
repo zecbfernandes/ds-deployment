@@ -6,3 +6,4 @@ pandas
 numpy
 cloudpickle
 imblearn
+matplotlib

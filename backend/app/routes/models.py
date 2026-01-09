@@ -21,4 +21,4 @@ def list_models(state: AppState = Depends(get_state)):
             "name": m.get("name"),
             "type": m.get("type"),
         })
-    return {"models": items, "has_pipeline": state.pipeline is not None}
+    return {"models": items, "has_pipeline": True}

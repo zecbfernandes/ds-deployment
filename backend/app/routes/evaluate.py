@@ -3,10 +3,23 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from ..state import AppState
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    confusion_matrix,
+)
 from pathlib import Path
 import logging
 import joblib
+import io
+import base64
+
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 
 router = APIRouter()
@@ -82,9 +95,9 @@ async def evaluate_models(
     # Log feature columns before any transformation
     try:
         feature_cols = [str(c) for c in X.columns.tolist()]
-        logger.info("Feature columns before pipeline: %s", feature_cols)
+        logger.debug("Feature columns before pipeline: %s", feature_cols)
     except Exception:
-        logger.info("Feature data type before pipeline: %s", type(X))
+        logger.debug("Feature data type before pipeline: %s", type(X))
 
     # Helper to resolve config directory (same logic as app startup)
     def _resolve_config_dir() -> Path:
@@ -120,6 +133,42 @@ async def evaluate_models(
         except Exception as e:
             return f"type={type(data).__name__}, error={e}"
 
+    def _fig_to_base64(fig) -> str:
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight")
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode("utf-8")
+        plt.close(fig)
+        return b64
+
+    def _metrics_bar_png(metrics: Dict[str, float], title: str) -> str:
+        labels = ["accuracy", "f1", "precision", "recall"]
+        values = [float(metrics.get(k, 0.0)) for k in labels]
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.bar(labels, values)
+        ax.set_ylim(0.0, 1.0)
+        ax.set_title(title)
+        ax.set_ylabel("Score")
+        ax.grid(axis="y", linestyle="--", alpha=0.3)
+        return _fig_to_base64(fig)
+
+    def _confusion_matrix_png(cm: List[List[int]], title: str) -> str:
+        arr = np.array(cm)
+        fig, ax = plt.subplots(figsize=(5, 4))
+        im = ax.imshow(arr, interpolation="nearest")
+        ax.set_title(title)
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("Actual")
+
+        # annotate counts
+        for i in range(arr.shape[0]):
+            for j in range(arr.shape[1]):
+                ax.text(j, i, str(arr[i, j]), ha="center", va="center")
+
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        return _fig_to_base64(fig)
+
     # Load and apply full pipeline if steps provided in metadata
     steps: List[str] = state.metadata.get("pipeline_steps", []) if state and state.metadata else []
     if steps:
@@ -130,9 +179,9 @@ async def evaluate_models(
         SKIP_STEPS = {"balancer.joblib", "mv.joblib", "outlier_processor.joblib"}
         # Print dataset before the first step
         try:
-            logger.info("Dataset BEFORE first pipeline step (sample): %s", _snapshot(X_transformed))
+            logger.debug("Dataset BEFORE first pipeline step (sample): %s", _snapshot(X_transformed))
         except Exception:
-            logger.info("Unable to snapshot dataset before steps", exc_info=True)
+            logger.debug("Unable to snapshot dataset before steps", exc_info=True)
         for step_path in steps:
             sp = Path(step_path)
             if not sp.is_absolute():
@@ -152,50 +201,48 @@ async def evaluate_models(
                 # Log input columns for this step
                 try:
                     step_input_cols = [str(c) for c in getattr(X_transformed, "columns", []).tolist()]
-                    logger.info("Step %s input columns: %s", sp.name, step_input_cols)
+                    logger.debug("Step %s input columns: %s", sp.name, step_input_cols)
                 except Exception:
-                    logger.info("Step %s input type: %s", sp.name, type(X_transformed))
+                    logger.debug("Step %s input type: %s", sp.name, type(X_transformed))
                 # Print dataset snapshot before applying this step
                 try:
-                    logger.info("Dataset BEFORE '%s' (sample): %s", sp.name, _snapshot(X_transformed))
-                    logger.info("\n")
+                    logger.debug("Dataset BEFORE '%s' (sample): %s", sp.name, _snapshot(X_transformed))
                 except Exception:
-                    logger.info("Unable to snapshot dataset before '%s'", sp.name, exc_info=True)
+                    logger.debug("Unable to snapshot dataset before '%s'", sp.name, exc_info=True)
                 X_transformed = transformer.transform(X_transformed)
                 # Log output columns after this step
                 try:
                     step_output_cols = [str(c) for c in getattr(X_transformed, "columns", []).tolist()]
-                    logger.info("Step %s output columns: %s", sp.name, step_output_cols)
+                    logger.debug("Step %s output columns: %s", sp.name, step_output_cols)
                 except Exception:
                     shape = getattr(X_transformed, "shape", None)
                     if shape is not None:
-                        logger.info("Step %s output type: %s, shape=%s", sp.name, type(X_transformed), shape)
+                        logger.debug("Step %s output type: %s, shape=%s", sp.name, type(X_transformed), shape)
                     else:
-                        logger.info("Step %s output type: %s", sp.name, type(X_transformed))
+                        logger.debug("Step %s output type: %s", sp.name, type(X_transformed))
                 # Print dataset snapshot after applying this step
                 try:
-                    logger.info("Dataset AFTER '%s' (sample): %s", sp.name, _snapshot(X_transformed))
-                    logger.info("\n")
+                    logger.debug("Dataset AFTER '%s' (sample): %s", sp.name, _snapshot(X_transformed))
                 except Exception:
-                    logger.info("Unable to snapshot dataset after '%s'", sp.name, exc_info=True)
+                    logger.debug("Unable to snapshot dataset after '%s'", sp.name, exc_info=True)
             except AttributeError:
                 # Some steps may be callable
                 X_transformed = transformer(X_transformed)
                 # Log output columns after callable step
                 try:
                     step_output_cols = [str(c) for c in getattr(X_transformed, "columns", []).tolist()]
-                    logger.info("Step %s output columns: %s", sp.name, step_output_cols)
+                    logger.debug("Step %s output columns: %s", sp.name, step_output_cols)
                 except Exception:
                     shape = getattr(X_transformed, "shape", None)
                     if shape is not None:
-                        logger.info("Step %s output type: %s, shape=%s", sp.name, type(X_transformed), shape)
+                        logger.debug("Step %s output type: %s, shape=%s", sp.name, type(X_transformed), shape)
                     else:
-                        logger.info("Step %s output type: %s", sp.name, type(X_transformed))
+                        logger.debug("Step %s output type: %s", sp.name, type(X_transformed))
                 # Print dataset snapshot after callable step
                 try:
-                    logger.info("Dataset AFTER callable '%s' (sample): %s", sp.name, _snapshot(X_transformed))
+                    logger.debug("Dataset AFTER callable '%s' (sample): %s", sp.name, _snapshot(X_transformed))
                 except Exception:
-                    logger.info("Unable to snapshot dataset after callable '%s'", sp.name, exc_info=True)
+                    logger.debug("Unable to snapshot dataset after callable '%s'", sp.name, exc_info=True)
             except Exception as e:
                 present_cols: List[str] = []
                 try:
@@ -216,13 +263,13 @@ async def evaluate_models(
             # Log columns after applying single pipeline
             try:
                 pipeline_output_cols = [str(c) for c in getattr(X_transformed, "columns", []).tolist()]
-                logger.info("Columns after pipeline: %s", pipeline_output_cols)
+                logger.debug("Columns after pipeline: %s", pipeline_output_cols)
             except Exception:
                 shape = getattr(X_transformed, "shape", None)
                 if shape is not None:
-                    logger.info("Data after pipeline type: %s, shape=%s", type(X_transformed), shape)
+                    logger.debug("Data after pipeline type: %s, shape=%s", type(X_transformed), shape)
                 else:
-                    logger.info("Data after pipeline type: %s", type(X_transformed))
+                    logger.debug("Data after pipeline type: %s", type(X_transformed))
         else:
             X_transformed = X
 
@@ -235,7 +282,7 @@ async def evaluate_models(
             X_final = X_transformed.drop(columns=[tgt_col])
             try:
                 final_feature_cols = [str(c) for c in getattr(X_final, "columns", []).tolist()]
-                logger.info("Final feature columns used for prediction: %s", final_feature_cols)
+                #logger.info("Final feature columns used for prediction: %s", final_feature_cols)
             except Exception:
                 shape = getattr(X_final, "shape", None)
                 if shape is not None:
@@ -254,15 +301,37 @@ async def evaluate_models(
             results.append({"model_id": mid, "error": f"Prediction failed: {e}"})
             continue
 
+        # Only requested metrics
         acc = accuracy_score(y_final, y_pred)
         f1 = f1_score(y_final, y_pred, average="weighted")
+        precision = precision_score(y_final, y_pred, average="weighted", zero_division=0)
+        recall = recall_score(y_final, y_pred, average="weighted", zero_division=0)
+        cm = confusion_matrix(y_final, y_pred).tolist()
+
+        metrics: Dict[str, Any] = {
+            "accuracy": acc,
+            "f1": f1,
+            "precision": precision,
+            "recall": recall,
+            "confusion_matrix": cm,
+        }
+
+        plots = {
+            "scores_bar_png": _metrics_bar_png(
+                {"accuracy": acc, "f1": f1, "precision": precision, "recall": recall},
+                title=f"Scores - {mid}",
+            ),
+            "confusion_matrix_png": _confusion_matrix_png(cm, title=f"Confusion Matrix - {mid}"),
+        }
+
+        # Ready-to-use values for <img src="..."> in the frontend
+        plots["scores_bar_data_uri"] = f"data:image/png;base64,{plots['scores_bar_png']}"
+        plots["confusion_matrix_data_uri"] = f"data:image/png;base64,{plots['confusion_matrix_png']}"
 
         results.append({
             "model_id": mid,
-            "metrics": {
-                "accuracy": acc,
-                "f1_weighted": f1,
-            },
+            "metrics": metrics,
+            "plots": plots,
         })
 
     return {"results": results}

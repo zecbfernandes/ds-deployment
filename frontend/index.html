@@ -48,7 +48,8 @@
       </label>
       <button type="submit">Evaluate</button>
     </form>
-    <pre id="evalOut"></pre>
+    <pre id="evalOut" style="display:none"></pre>
+    <div id="evalCharts"></div>
   </section>
 
   <script>
@@ -78,13 +79,91 @@
       e.preventDefault();
       const fileInput = document.getElementById('csvFile');
       const targetCol = document.getElementById('targetCol').value.trim();
+      const evalOut = document.getElementById('evalOut');
+      const chartsRoot = document.getElementById('evalCharts');
+      evalOut.style.display = 'none';
+      evalOut.textContent = '';
+      chartsRoot.innerHTML = '';
       if (!fileInput.files.length) { alert('Please select a CSV file'); return; }
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
       if (targetCol) fd.append('target_column', targetCol);
       const res = await fetch('/api/evaluate-models', { method: 'POST', body: fd });
       const data = await res.json();
-      document.getElementById('evalOut').textContent = JSON.stringify(data, null, 2);
+
+      // Only show raw JSON output when there's an error or unexpected payload
+      if (!res.ok || !data || !Array.isArray(data.results)) {
+        evalOut.style.display = 'block';
+        evalOut.textContent = JSON.stringify(data, null, 2);
+        return;
+      }
+
+      for (const r of data.results) {
+        const wrap = document.createElement('div');
+        wrap.style.marginTop = '1rem';
+        wrap.style.padding = '1rem';
+        wrap.style.border = '1px solid #ddd';
+        wrap.style.borderRadius = '8px';
+
+        const title = document.createElement('h3');
+        title.textContent = `Model: ${r.model_id}`;
+        wrap.appendChild(title);
+
+        // Metrics
+        if (r.metrics) {
+          const metricsPre = document.createElement('pre');
+          metricsPre.textContent = JSON.stringify(r.metrics, null, 2);
+          wrap.appendChild(metricsPre);
+        }
+
+        const plots = r.plots || {};
+        const scoresSrc = plots.scores_bar_data_uri || (plots.scores_bar_png ? `data:image/png;base64,${plots.scores_bar_png}` : null);
+        const cmSrc = plots.confusion_matrix_data_uri || (plots.confusion_matrix_png ? `data:image/png;base64,${plots.confusion_matrix_png}` : null);
+
+        const status = document.createElement('div');
+        status.style.fontSize = '0.9rem';
+        status.style.color = '#444';
+        status.textContent = `plots: scores=${scoresSrc ? scoresSrc.length : 0} chars, cm=${cmSrc ? cmSrc.length : 0} chars`;
+        wrap.appendChild(status);
+
+        if (scoresSrc) {
+          const img = document.createElement('img');
+          img.src = scoresSrc;
+          img.alt = 'Scores bar chart';
+          img.style.maxWidth = '100%';
+          img.style.display = 'block';
+          img.style.marginTop = '0.75rem';
+          img.onload = () => console.log('Loaded scores image for', r.model_id, 'len=', scoresSrc.length);
+          img.onerror = (e) => {
+            console.error('FAILED scores image for', r.model_id, e, 'len=', scoresSrc.length);
+            const err = document.createElement('div');
+            err.style.color = 'crimson';
+            err.textContent = 'Failed to render scores image (check console).';
+            wrap.appendChild(err);
+          };
+          wrap.appendChild(img);
+        }
+
+        if (cmSrc) {
+          const img = document.createElement('img');
+          img.src = cmSrc;
+          img.alt = 'Confusion matrix heatmap';
+          img.style.maxWidth = '100%';
+          img.style.display = 'block';
+          img.style.marginTop = '0.75rem';
+          img.onload = () => console.log('Loaded confusion matrix image for', r.model_id, 'len=', cmSrc.length);
+          img.onerror = (e) => {
+            console.error('FAILED confusion matrix image for', r.model_id, e, 'len=', cmSrc.length);
+            const err = document.createElement('div');
+            err.style.color = 'crimson';
+            err.textContent = 'Failed to render confusion matrix image (check console).';
+            wrap.appendChild(err);
+          };
+          wrap.appendChild(img);
+        }
+
+        chartsRoot.appendChild(wrap);
+      }
     });
   </script>
 </body>
